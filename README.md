@@ -1,6 +1,6 @@
 # Solar Production Monitoring Script - NO MQTT
 
-This repository contains a Python script designed to monitor solar production data from an OpenDTU device and update a Domoticz server with the collected data. Additionally, the script sends daily production reports via Telegram.
+This repository contains a Python script designed to monitor solar production data from an OpenDTU device and update a Domoticz server with the collected data. Additionally, the script sends daily production reports via Telegram, after all inverters are not producing (at the end of the day).
 
 ## Prerequisites
 
@@ -27,7 +27,6 @@ Before running the script, ensure you have the following:
     - Replace `dtu_base_url` with the IP address of your OpenDTU device.
     - Replace `domoticz_base_url` with the IP address of your Domoticz device.
     - Set the `TG_TOKEN` and `TG_CHATID` with your Telegram bot token and chat ID respectively.
-    - Adjust `daily_report_scheduled_hour` and `daily_report_scheduled_minute` to the desired time for sending the daily report.
 
 ## Script Overview
 
@@ -42,7 +41,6 @@ The script performs the following functions:
 
 - `dtu_base_url`: Base URL for the OpenDTU device.
 - `domoticz_base_url`: Base URL for the Domoticz server.
-- `daily_report_scheduled_hour`, `daily_report_scheduled_minute`: Time to send the daily production report.
 - `sleep_duration`: Time between each data update.
 - `idx_global`: Domoticz IDX for global solar data.
 - `TG_TOKEN`, `TG_CHATID`: Telegram bot token and chat ID for sending messages.
@@ -69,7 +67,7 @@ python domoticz-openDTU.py
 The script uses Python's logging module to log messages with the following format:
 
 ```
-%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)
+%(asctime)s - %(name)s - %(levelname)s - %(message)s \t (%(filename)s:%(lineno)d)
 ```
 
 Logging levels can be adjusted as needed by modifying the `logging.basicConfig` call.
