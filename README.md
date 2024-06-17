@@ -1,4 +1,4 @@
-# Solar Production Monitoring Script
+# Solar Production Monitoring Script - NO MQTT
 
 This repository contains a Python script designed to monitor solar production data from an OpenDTU device and update a Domoticz server with the collected data. Additionally, the script sends daily production reports via Telegram.
 
