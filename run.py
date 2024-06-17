@@ -1,33 +1,37 @@
 import requests
 import time
 import logging
-import datetime
 
 # Replace with your OpenDTU device IP address
 dtu_base_url      = "http://10.0.10.1"
+
 # Replace with your Domoticz device IP address
-domoticz_base_url = "http://10.0.20.1"
-# Define the time to run the send_daily_to_telegram function (e.g., 10 PM)
-daily_report_scheduled_hour    = 22
-daily_report_scheduled_minute  = 0
-# Define the loop duration (time between each update)
-sleep_duration                 = 3
-# Domoticz IDX for Global Sensor (not individual)
-idx_global                     = 1125
-# Define your Telegram Settings
-TG_TOKEN                       = '1234567890:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+domoticz_base_url = "http://127.0.0.1"
+
+# Replace with your Telegram Values
+TG_TOKEN                       = 'YOUR_TELEGRAM_TOKEN'
 TG_CHATID                      = 'xxxxxxxxx'
-report_send                    = False
-solar_production               = False
+
+daily_report_sent              = False
+notif_all_started              = False
+notif_all_stopped              = False
+sleep_duration                 = 3
 log_format                     = "%(asctime)s - %(name)s - %(levelname)s - %(message)s \t (%(filename)s:%(lineno)d)"
+
 # Mapping between inverter serial numbers and their corresponding Domoticz IDX values
-serial_to_idx                  = {
-    '11259203xxxx': '1126',    # panneau 1
-    '11259214xxxx': '1128',    # extension 1
-    '11259203xxxx': '1127',    # panneau 2
-    '11259203xxxx': '1129'     # extension 2
+# Replace Serials by yours
+idx_global                     = 1125
+serial_to_datas = {
+    '1125xxxxxxxx': {'idx': '1126', 'name': 'Panneau 1', 'max_power': 400},
+    '1125xxxxxxxx': {'idx': '1128', 'name': 'Extension 1', 'max_power': 400},
+    '1125xxxxxxxx': {'idx': '1127', 'name': 'Panneau 2', 'max_power': 400},
+    '1125xxxxxxxx': {'idx': '1129', 'name': 'Extension 2', 'max_power': 400}
 }
 
+# Initialize the production state for each inverter
+solar_production = {serial: False for serial in serial_to_datas.keys()}
+
+# Initialize Logging
 logging.basicConfig(
     format = log_format,
     level  = 'INFO'
@@ -36,33 +40,21 @@ logging.basicConfig(
 logging.info('Start...')
 
 def get_system_info():
-    """Fetch system info from OpenDTU."""
-    url = f"{dtu_base_url}/api/system/status"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.info(f"Error: {response.status_code}")
-        return None
+    return fetch_data(f"{dtu_base_url}/api/system/status")
 
 def get_live_data():
-    """Fetch global live data from OpenDTU."""
-    url = f"{dtu_base_url}/api/livedata/status"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.info(f"Error: {response.status_code}")
-        return None
+    return fetch_data(f"{dtu_base_url}/api/livedata/status")
 
 def get_inverter_live_data(inverter):
-    """Fetch inverter detailed live data from OpenDTU."""
-    url = f"{dtu_base_url}/api/livedata/status?inv={inverter}"
-    response = requests.get(url)
-    if response.status_code == 200:
+    return fetch_data(f"{dtu_base_url}/api/livedata/status?inv={inverter}")
+
+def fetch_data(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         return response.json()
-    else:
-        logging.info(f"Error: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"HTTP Request failed: {e}")
         return None
 
 def update_domoticz_solar(IDX, POWER, ENERGY):
@@ -70,8 +62,6 @@ def update_domoticz_solar(IDX, POWER, ENERGY):
     response = requests.get(update_url)
     if response.status_code == 200:
         return response
-    else:
-      return False
 
 def send_message_by_telegram(MESSAGE, TOKEN, CHATID):
     import requests
@@ -81,6 +71,7 @@ def send_message_by_telegram(MESSAGE, TOKEN, CHATID):
         return True
     except Exception as e:
         logging.error(e)
+        return False
 
 while True:
     try:
@@ -92,15 +83,15 @@ while True:
             current_power = (round(float(live_data.get('total')['Power'].get('v')), 1))
             yield_day = (float(live_data.get('total')['YieldDay'].get('v')))
             response = update_domoticz_solar(idx_global, current_power, yield_day)
-            if not response:
-                logging.error("Error updating Domoticz Global Sensor")
-            else:
-                toc = time.perf_counter()
-                logging.debug(f"1 - Duration : {toc - tic:0.4f} seconds. HTTP : {response.status_code}")
-            # Update Individual Solar Panel Datas - start counter
+            toc = time.perf_counter()
+            logging.debug(f"1 - Duration : {toc - tic:0.4f} seconds. HTTP : {response.status_code}")
+            
+            # Update Individual Solar Panel Datas
             tic = time.perf_counter()
             # Get the list off all inverters serial numbers
-            for serial, idx in serial_to_idx.items():
+            for serial, data in serial_to_datas.items():
+                idx  = data['idx']
+                name = data['name']
                 # For each serial number, query to openDTU
                 live_data = get_inverter_live_data(serial)
                 if live_data is not None:
@@ -108,45 +99,59 @@ while True:
                         inverter_data = live_data['inverters'][0]
                         # Check if the inverter is producing energy
                         if inverter_data['producing']:
-                            # Check if it was producing during previous run :
-                            if not solar_production:
+                            # Check if it was NOT producing during previous run :
+                            if not solar_production[serial]:
                                 # If it was not, then this a production start from the morning
-                                solar_production = True
-                                report_send = False
-                                send_message_by_telegram("Starting Solar Production !", TG_TOKEN, TG_CHATID)
+                                solar_production[serial] = True
+                                send_message_by_telegram(f"Starting Solar Production for {name}", TG_TOKEN, TG_CHATID)
                             power = round(float(inverter_data['INV']['0']['Power DC']['v']), 1)
                             energy = int(inverter_data['INV']['0']['YieldDay']['v'])
                             response = update_domoticz_solar(idx, power, energy)
                             logging.debug(f"Inverter {serial} : HTTP {response.status_code}\n")
                         else:
                             # Check if it was producing during previous run :
-                            if solar_production:
+                            if solar_production[serial]:
                                 # If it was, then this is production end from the evening
-                                solar_production = False
-                                send_message_by_telegram("Ending Solar Production !", TG_TOKEN, TG_CHATID)
+                                solar_production[serial] = False
+                                send_message_by_telegram(f"Ending Solar Production for {name}", TG_TOKEN, TG_CHATID)
                             logging.debug(f'Inverter {serial} is NOT producing energy')
                     else:
-                        logging.warning('no inverters in live_data')
+                        logging.warning('No inverters in live_data')
                 else:
-                    logging.debug(f'no data received for inverter {serial}')
+                    logging.warning(f'No data received for inverter {name} ({serial})')
             toc = time.perf_counter()
             logging.debug(f"2 - Duration : {toc - tic:0.4f} seconds.\n")
-            # Check the current time and execute the new function if it's the scheduled time
-            current_time = datetime.datetime.now()
-            if current_time.hour == daily_report_scheduled_hour and current_time.minute == daily_report_scheduled_minute and not report_send:
-                # Get daily produced value in Wh
+
+            # Check if ALL inverters have stopped or started producing
+            all_inverters_stopped = all(not value for value in solar_production.values())
+            all_inverters_started = all(value for value in solar_production.values())
+            
+            if all_inverters_stopped and not notif_all_stopped:
+                logging.debug('All Inverters are NOT producing now')
+                send_message_by_telegram("All inverters Stopped!", TG_TOKEN, TG_CHATID)
+                notif_all_stopped = True
+                notif_all_started = False
+            elif all_inverters_started and not notif_all_started:
+                logging.debug('All Inverters are producing now')
+                send_message_by_telegram("All inverters Started!", TG_TOKEN, TG_CHATID)
+                notif_all_started = True
+                notif_all_stopped = False
+                daily_report_sent = False
+            
+            # Send Daily Report
+            if not daily_report_sent and notif_all_stopped:
                 logging.info('Time to send Daily Production Message')
                 yield_day = (float(live_data.get('total')['YieldDay'].get('v')))
                 energy_in_kwh = yield_day / 1000
                 message = (f"🌞 Production Solaire du Jour : {energy_in_kwh} kWh")
-                if send_message_by_telegram(message, TG_TOKEN, TG_CHATID):
-                    report_send = True
+                send_message_by_telegram(message, TG_TOKEN, TG_CHATID)
+                daily_report_sent = True
+
         else:
-            logging.info('no data received')
+            logging.warning('No live_data received')
         global_toc = time.perf_counter()
         logging.debug(f"== Total Duration : {global_toc - global_tic:0.4f} seconds.\n")
         time.sleep(sleep_duration)
     except Exception as e:
-        logging.error("Exiting Try Loop !)
-        logging.error(e)
+        logging.debug(e)
         exit(-1)
