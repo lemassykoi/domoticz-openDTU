@@ -1,0 +1,47 @@
+{
+    "solar_units": {
+        "112592000000": {
+            "idx": "1133",
+            "name": "Panneau 1",
+            "max_power": 400,
+            "failures": 0
+        },
+        "112592000000": {
+            "idx": "1135",
+            "name": "Extension 1",
+            "max_power": 400,
+            "failures": 0
+        },
+        "112592000000": {
+            "idx": "1134",
+            "name": "Panneau 2",
+            "max_power": 400,
+            "failures": 0
+        },
+        "112592000000": {
+            "idx": "1136",
+            "name": "Extension 2",
+            "max_power": 400,
+            "failures": 0
+        }
+    },
+    "telegram": {
+        "token": "1234567890:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "chat_id": "xxxxxxxxx"
+    },
+    "global_solar": {
+        "idx": "1132",
+        "name": "Solar",
+        "failures": 0
+    },
+    "global_solar_historic": {
+        "idx": "1130",
+        "name": "P1 Meter",
+        "failures": 0
+    },
+    "global_config": {
+        "dtu_base_url": "http://192.168.0.10",
+        "domoticz_base_url": "http://127.0.0.1",
+        "sleep_duration": 3
+    }
+}
