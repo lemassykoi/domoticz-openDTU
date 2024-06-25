@@ -1,4 +1,6 @@
-# Solar Production Monitoring Script - NO MQTT
+# Solar Production Monitoring Script
+# From OpenDTU - NO MQTT
+# (v2 is also available, with JSON file for settings)
 
 This repository contains a Python script designed to monitor solar production data from an OpenDTU device and update a Domoticz server with the collected data. Additionally, the script sends daily production reports via Telegram, after all inverters are not producing (at the end of the day).
 
@@ -8,6 +10,8 @@ Before running the script, ensure you have the following:
 
 - Python 3.x installed
 - A DomoticZ instance running
+- Some dummy devices `Electric (Instant + Counter)`, set in Return, and Computed (see picture below)
+![image](https://github.com/lemassykoi/domoticz-openDTU/assets/16377344/64968239-1e42-4799-89a4-fc16ead7862e)
 - Required Python packages (`requests`, `logging`)
 
 ## Setup
