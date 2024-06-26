@@ -32,7 +32,7 @@ inverters_data = inverters_list.json()
 
 def create_dummy_device(sensor_name, device_type, device_subtype, options=None):
     """Create a dummy device in Domoticz and return its IDX."""
-    update_url = f"{domoticz_base_url}/json.htm?type=command&param=createdevice&idx={dummy_HW_IDX}&sensorname={sensor_name}&devicetype={device_type}&devicesubtype={device_subtype}&Switchtype=4"
+    update_url = f"{domoticz_base_url}/json.htm?type=command&param=createdevice&idx={dummy_HW_IDX}&sensorname={sensor_name}&devicetype={device_type}&devicesubtype={device_subtype}"
     if options:
         #options_str = json.dumps(options).replace(" ", "")
         options_str = json.dumps(options)
@@ -110,6 +110,20 @@ def main():
         idx = create_dummy_device(sensor_name, 243, 29, {"EnergyMeterMode": "1"})
         if idx is not None:
             devices_info.append({'name': sensor_name, 'serial': serial_number, 'idx': idx})
+            update_url = f"{domoticz_base_url}/json.htm?type=command&param=setused&idx={idx}&name={sensor_name}&switchtype=4&used=true"
+            response = requests.get(update_url)
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status') == 'OK':
+                    new_idx = result['idx']
+                    logger.info(f'Device {sensor_name} updated : IDX {new_idx}')
+                    return new_idx
+                else:
+                    logger.error(f"Status not OK : {result.get('status')}")
+                    return None
+            else:
+                logger.error(f"Failed to update device {sensor_name}: {response.status_code}")
+                return None
 
     # Create P1 Meter for history
     global_solar_historic_idx = create_dummy_device(sensor_name_P1, 250, 1)
