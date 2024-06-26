@@ -1,3 +1,8 @@
+## Read Devices from OpenDTU
+## Create Domoticz dummy devices and get IDX
+## Generate data.json with the required infos
+## Then you can use run_v2.py
+
 import requests
 import logging
 import json
