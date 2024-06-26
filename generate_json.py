@@ -37,7 +37,7 @@ def create_dummy_device(sensor_name, device_type, device_subtype, options=None):
         #options_str = json.dumps(options).replace(" ", "")
         options_str = json.dumps(options)
         update_url += f"&Options={options_str}"
-    print(update_url)
+    logger.debug(update_url)
     response = requests.get(update_url)
     if response.status_code == 200:
         result = response.json()
